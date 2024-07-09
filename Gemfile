@@ -2,6 +2,10 @@ source 'https://rubygems.org'
 
 ruby '3.3.0'
 
+gem 'dotenv-rails', groups: %i[development test]
+
+gem 'faraday'
+
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem 'rails', '~> 7.1.3', '>= 7.1.3.4'
 
@@ -39,7 +43,8 @@ group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem 'debug', platforms: %i[mri windows]
   gem 'factory_bot_rails'
-  gem 'rspec-rails', '~> 5.0'
+  gem 'rspec-rails', '~> 6.1.0'
+  gem 'webmock'
 end
 
 group :development do
