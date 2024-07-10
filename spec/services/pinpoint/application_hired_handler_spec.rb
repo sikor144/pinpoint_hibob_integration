@@ -1,80 +1,94 @@
-# frozen_string_literal: true
-
 require 'rails_helper'
 
-RSpec.describe Pinpoint::ApplicationHiredHandler, type: :handler do
-  let(:event) do
-    double('WebhookEvent', payload: {
-             'data' => {
-               'application' => { 'id' => 1 }
-             }
-           })
-  end
+require_relative '../../../app/services/pinpoint/fetch_application'
+require_relative '../../../app/services/hi_bob/create_employee'
+require_relative '../../../app/services/hi_bob/add_cv_to_employee'
+require_relative '../../../app/services/pinpoint/add_comment_to_application'
+require_relative '../../../app/errors/pinpoint/error'
+require_relative '../../../app/errors/hi_bob/error'
 
-  let(:application) do
-    {
-      'data' => {
-        'attributes' => {
-          'first_name' => 'John',
-          'last_name' => 'Doe',
-          'email' => 'john.doe@example.com',
-          'attachments' => [
-            { 'context' => 'pdf_cv', 'url' => 'http://example.com/john_doe_cv.pdf' }
-          ]
+module Pinpoint
+  RSpec.describe ApplicationHiredHandler, type: :handler do
+    let(:event_payload) { { 'data' => { 'application' => { 'id' => application_id } } } }
+    let(:application_id) { '12345' }
+    let(:application_data) do
+      {
+        'data' => {
+          'attributes' => {
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'email' => 'john.doe@example.com',
+            'attachments' => attachments
+          }
         }
       }
-    }
-  end
+    end
+    let(:attachments) { [{ 'context' => 'pdf_cv', 'url' => 'http://example.com/cv.pdf' }] }
+    let(:employee_data) { { 'id' => '67890' } }
+    let(:event) { instance_double('Event', payload: event_payload) }
 
-  let(:employee) { { 'id' => 123 } }
-  let(:application_fetcher) { instance_double('Apis::Pinpoint::Applications::Fetch', call: application) }
-  let(:employee_creator) { instance_double('Apis::HiBob::People::Create', call: employee) }
-  let(:document_uploader) { instance_double('Apis::HiBob::People::AddSharedDocument', call: true) }
-  let(:comment_creator) { instance_double('Apis::Pinpoint::Applications::AddComment', call: true) }
-
-  subject { described_class.new(event) }
-
-  before do
-    allow(Apis::Pinpoint::Applications::Fetch).to receive(:new).and_return(application_fetcher)
-    allow(Apis::HiBob::People::Create).to receive(:new).and_return(employee_creator)
-    allow(Apis::HiBob::People::AddSharedDocument).to receive(:new).and_return(document_uploader)
-    allow(Apis::Pinpoint::Applications::AddComment).to receive(:new).and_return(comment_creator)
-  end
-
-  describe '#call' do
-    it 'fetches the application data' do
-      expect(application_fetcher).to receive(:call).with(id: 1, options: { extra_fields: %w[attachments] })
-      subject.call
+    before do
+      allow_any_instance_of(Pinpoint::FetchApplication).to receive(:call).and_return(application_data)
+      allow_any_instance_of(HiBob::CreateEmployee).to receive(:call).and_return(employee_data)
+      allow_any_instance_of(HiBob::AddCvToEmployee).to receive(:call)
+      allow_any_instance_of(Pinpoint::AddCommentToApplication).to receive(:call)
     end
 
-    it 'creates an employee with the fetched application data' do
-      expected_start_date = 2.weeks.from_now
+    subject { described_class.new(event) }
 
-      expect(employee_creator).to receive(:call).with(
-        first_name: 'John',
-        surname: 'Doe',
-        email: 'john.doe@example.com',
-        site: 'New York (Demo)',
-        start_date: be_within(1.second).of(expected_start_date)
-      )
-      subject.call
-    end
+    describe '#call' do
+      context 'when the process is successful' do
+        it 'fetches the application' do
+          expect_any_instance_of(Pinpoint::FetchApplication).to receive(:call).with(application_id)
+          subject.call
+        end
 
-    it 'uploads the CV as a public document to HiBob' do
-      expect(document_uploader).to receive(:call).with(
-        person_id: 123,
-        document_name: 'CV',
-        document_url: 'http://example.com/john_doe_cv.pdf'
-      )
-      subject.call
-    end
+        it 'creates an employee' do
+          expect_any_instance_of(HiBob::CreateEmployee).to receive(:call).with(application_data)
+          subject.call
+        end
 
-    it 'adds a comment to the application' do
-      expect(comment_creator).to receive(:call).with(
-        id: 1,
-        comment: 'Record created with ID: 123'
-      )
-      subject.call
+        it 'adds the CV to the employee' do
+          expect_any_instance_of(HiBob::AddCvToEmployee).to receive(:call).with(employee_data['id'], 'CV', 'http://example.com/cv.pdf')
+          subject.call
+        end
+
+        it 'adds a comment to the application' do
+          expect_any_instance_of(Pinpoint::AddCommentToApplication).to receive(:call).with(application_id,
+                                                                                           employee_data['id'])
+          subject.call
+        end
+      end
+
+      context 'when there is a custom error' do
+        before do
+          allow_any_instance_of(Pinpoint::FetchApplication).to receive(:call).and_raise(Pinpoint::Error,
+                                                                                        'Custom error message')
+        end
+
+        it 'handles the custom error' do
+          expect(Rails.logger).to receive(:error).with(/Custom Error in ApplicationHiredHandler: Custom error message/)
+          expect do
+            subject.call
+          end.to raise_error(Pinpoint::WebhookEventError,
+                             /Failed to process application hired event: Custom error message/)
+        end
+      end
+
+      context 'when there is a standard error' do
+        before do
+          allow_any_instance_of(Pinpoint::FetchApplication).to receive(:call).and_raise(StandardError,
+                                                                                        'Standard error message')
+        end
+
+        it 'handles the standard error' do
+          expect(Rails.logger).to receive(:error).with(/Error in ApplicationHiredHandler: Standard error message/)
+          expect do
+            subject.call
+          end.to raise_error(Pinpoint::WebhookEventError,
+                             /Failed to process application hired event: Standard error message/)
+        end
+      end
     end
   end
 end
