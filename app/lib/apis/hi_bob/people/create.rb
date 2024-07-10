@@ -21,7 +21,7 @@ module Apis
             email:,
             work: {
               site:,
-              startDate: start_date
+              startDate: start_date.strftime('%Y-%m-%d')
             }
           }.merge(options)
         end

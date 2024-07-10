@@ -7,7 +7,7 @@ require 'rails/all'
 Bundler.require(*Rails.groups)
 
 # Load environment variables from .env file
-Dotenv::Rails.load if defined?(Dotenv::Rails)
+Dotenv::Rails.load if defined?(Dotenv::Rails) && Rails.env.development?
 
 module PinpointHibobIntegration
   class Application < Rails::Application

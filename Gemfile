@@ -44,6 +44,7 @@ group :development, :test do
   gem 'debug', platforms: %i[mri windows]
   gem 'factory_bot_rails'
   gem 'rspec-rails', '~> 6.1.0'
+  gem 'shoulda-matchers'
   gem 'webmock'
 end
 

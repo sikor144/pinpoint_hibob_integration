@@ -20,7 +20,7 @@ RSpec.describe Apis::HiBob::People::Create do
   let(:surname) { 'Doe' }
   let(:email) { 'john.doe@example.com' }
   let(:site) { 'New York Office' }
-  let(:start_date) { '2024-07-09' }
+  let(:start_date) { '2024-07-09'.to_date }
   let(:body) do
     {
       firstName: first_name,
