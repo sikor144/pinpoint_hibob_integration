@@ -13,10 +13,8 @@ class WebhooksController < ApplicationController
     Pinpoint::WebhookEventHandler.new(params).handle_event
     head :ok
   rescue ActiveRecord::RecordInvalid => e
-    puts "Failed to create webhook event: #{e.message}"
     head :unprocessable_entity
   rescue StandardError => e
-    puts "Unexpected error: #{e.message}"
     head :internal_server_error
   end
 end

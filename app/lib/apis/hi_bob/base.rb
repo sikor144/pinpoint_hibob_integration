@@ -63,7 +63,7 @@ module Apis
         }
       end
 
-      def post(path, body)
+      def post(path, body = {})
         response = @connection.post(path, body.to_json)
         handle_response(response)
       rescue Faraday::TimeoutError, Faraday::ConnectionFailed

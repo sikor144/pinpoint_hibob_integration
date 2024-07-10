@@ -60,6 +60,13 @@ module Apis
           'content-type' => 'application/json'
         }
       end
+
+      def post(path, body = {})
+        response = @connection.post(path, body.to_json)
+        handle_response(response)
+      rescue Faraday::TimeoutError, Faraday::ConnectionFailed
+        raise Apis::Pinpoint::TimeoutError, 'Request timed out'
+      end
     end
   end
 end

@@ -24,9 +24,8 @@ module Pinpoint
 
     private
 
-    def generate_event_signature(_params)
-      # Digest::SHA256.hexdigest(params.to_unsafe_h.to_s)
-      SecureRandom.uuid
+    def generate_event_signature(params)
+      Digest::SHA256.hexdigest(params.to_unsafe_h.to_s)
     end
 
     def create_webhook_event(event_signature)
